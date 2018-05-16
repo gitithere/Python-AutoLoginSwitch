@@ -1,0 +1,112 @@
+#!/usr/bin/python
+#_*_ coding: utf-8 _*_
+import pexpect, sys, os, subprocess, time, logging, getpass
+
+###DEFINE PROMPT RETURN
+PROMPT = ['# ', '>>> ', '> ','\$ ','$ ','>','#']
+
+###LOGGING SETUP
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# create a file handler
+handler = logging.FileHandler('logsshpexpect.log')
+handler.setLevel(logging.INFO)
+# create a logging format
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+# add the handlers to the Logger
+logger.addHandler(handler)
+#logger.info('Hello Logger')
+###END SETUP LOGGING
+
+###SEND SOME COMMANDS TO THE SSH SESSION OPENED
+def send_command(child, user, password):
+    print ' sending enable command'
+    time.sleep(2)
+
+###NEW SSH CONNECTIONS - KEY EXISTS OR NOT - LOGGING INTO SWITCHES WITH ENABLE COMMAND...
+def connect(user, host, password):
+    ssh_newkey = 'Are you sure you want to continue connecting'
+    connStr = 'ssh ' + user + '@' + host
+    logger.info('sending command: ssh ' + user + '@' + host)
+    time.sleep(1)
+    child = pexpect.spawn(connStr)
+    time.sleep(1)
+    ret = child.expect([pexpect.TIMEOUT, ssh_newkey,\
+                           '[P|p]assword:'])
+    if ret == 0:
+        print '[-] Error Connecting'
+        logger.info('Error Connecting')
+        return
+
+    if ret == 1:
+        child.sendline('yes')
+        ret = child.expect([pexpect.TIMEOUT, timeout==1, \
+                             '[P|p]assword:'])
+
+        if ret == 0:
+            print '[-] Error Connecting'
+            logger.info('Error Connecting')
+            return
+
+    if ret == 2:
+        child.sendline(password)
+        child.expect(PROMPT)
+        print child.before + ' Successfully Connected!'
+        logger.info(child.before)
+        logger.info('Successfully Connected!')
+
+###SENDING ENABLE COMMAND
+
+        print 'sending enable command'
+        time.sleep(2)
+        child.sendline('en')
+        child.expect([pexpect.TIMEOUT, \
+                        'User Name:'])
+        print 'sending username'
+        time.sleep(1)
+        child.sendline(user)
+        child.expect([pexpect.TIMEOUT, \
+                        'Password:'])
+
+###NEED TO REQUERY SENDING PASSWORD FOR ENABLE COMMAND
+
+        print 'sending password'
+        time.sleep(12)
+        secondfac = subprocess.check_output(['oathtool', '--totp', '-b', 'DA SECRET'])
+        password = 'DA SECRET' + secondfac
+        child.sendline(password)
+        print 'password sent'
+        child.expect(PROMPT)
+        print child.before
+        logger.info(child.before)
+        print child.before + ' Success Enable Mode!'
+
+###GIVE CONTROL OF THE CHILD TO THE USER
+        child.interact()
+        return child
+
+###GET 2nd FACTOR
+def runoathtool():
+     global secondfac
+     secondfac = subprocess.check_output(['oathtool', '--totp', '-b', 'DA SECRET'])
+
+###THE MAIN PROCEDURE
+def main():
+    print 'wait...connecting....'
+    time.sleep(1)
+    user = 'username'
+    password = 'DA SECRET'
+    runoathtool()
+    host = raw_input("[*] Enter Target Host Address: ")
+#   user = raw_input("[*] Enter SSH Username: ")
+# Below is to manually enter password
+#    password = getpass.getpass("[*] Enter SSH Password: ")
+#    password = raw_input("[*] Enter SSH Password: ")
+# Below is to enter password + 2nd factor
+    password = password + secondfac
+    child = connect(user, host, password)
+#   send_command(child, user, password)
+
+if __name__ == '__main__':
+    main()
