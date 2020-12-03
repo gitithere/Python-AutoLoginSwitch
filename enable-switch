@@ -24,6 +24,7 @@ def send_command(child, user, password):
     print ' sending enable command'
     time.sleep(2)
 
+
 ###NEW SSH CONNECTIONS - KEY EXISTS OR NOT - LOGGING INTO SWITCHES WITH ENABLE COMMAND...
 def connect(user, host, password):
     ssh_newkey = 'Are you sure you want to continue connecting'
@@ -41,8 +42,11 @@ def connect(user, host, password):
 
     if ret == 1:
         child.sendline('yes')
-        ret = child.expect([pexpect.TIMEOUT, timeout==1, \
-                             '[P|p]assword:'])
+###     ret = child.expect([pexpect.TIMEOUT, timeout==1, \
+###                         '[P|p]assword:'])
+        child.sendline(password)
+        child.expect(PROMPT)
+        child = cont_connect(user, host, password, ssh_newkey, connStr, child, ret)
 
         if ret == 0:
             print '[-] Error Connecting'
@@ -52,9 +56,11 @@ def connect(user, host, password):
     if ret == 2:
         child.sendline(password)
         child.expect(PROMPT)
-        print child.before + ' Successfully Connected!'
-        logger.info(child.before)
-        logger.info('Successfully Connected!')
+        child = cont_connect(user, host, password, ssh_newkey, connStr, child, ret)
+
+def cont_connect(user, host, password, ssh_newkey, connStr, child, ret):
+        print child.before + '-' + host + ' Successfully Connected!'
+        logger.info(child.before + '-' + host + ' Successfully Connected!')
 
 ###SENDING ENABLE COMMAND
 
@@ -69,34 +75,51 @@ def connect(user, host, password):
         child.expect([pexpect.TIMEOUT, \
                         'Password:'])
 
-###NEED TO REQUERY SENDING PASSWORD FOR ENABLE COMMAND
+###NEED TO REQUERY SENDING PASSWORD FOR ENABLE COMMAND - WAIT FOR THE NEXT SEQUENCE...
 
-        print 'sending password'
-        time.sleep(12)
+        print 'waiting to sending password...'
+        time.sleep(19)
         runoathtool()
-        password = 'DA SECRET' + secondfac
+        password = 'XXX' + secondfac
         child.sendline(password)
         print 'password sent'
         child.expect(PROMPT)
         print child.before
         logger.info(child.before)
-        print child.before + ' Success Enable Mode!'
-
+        print child.before + ' Successfully Connected Enable Mode!'
+###SENDING TFTP COPY COMMAND
+###WORKING HERE
+        time.sleep(1)
+        child.sendline('wri mem')
+        time.sleep(1)
+        print 'sent wri mem'
+        time.sleep(1)
+        print 'sending copy startup-config tftp XXX ' + host + '-startup config'
+        child.sendline('copy startup-config tftp XXX ' + host + '-startup-config')
+        child.expect([pexpect.TIMEOUT, \
+                        '..Upload startup-config to TFTP server done.'])
+        print '..Upload startup-config to TFTP server done. Copy successful!'
+        time.sleep(1)
+        child.sendline('exit')
+        time.sleep(1)
+        child.sendline('exit')
 ###GIVE CONTROL OF THE CHILD TO THE USER
         child.interact()
         return child
 
 ###GET 2nd FACTOR
 def runoathtool():
+#    print subprocess.check_output(['oathtool', '--totp', '-b', 'XXX'])
      global secondfac
-     secondfac = subprocess.check_output(['oathtool', '--totp', '-b', 'DA SECRET'])
+     secondfac = subprocess.check_output(['oathtool', '--totp', '-b', 'XXX'])
+
 
 ###THE MAIN PROCEDURE
 def main():
     print 'wait...connecting....'
     time.sleep(1)
-    user = 'username'
-    password = 'DA SECRET'
+    user = 'XXX'
+    password = 'XXX'
     runoathtool()
     host = raw_input("[*] Enter Target Host Address: ")
 #   user = raw_input("[*] Enter SSH Username: ")
